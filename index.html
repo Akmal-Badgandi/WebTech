@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartLeave – Hostel Leave System</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: rgba(99,179,237,0.12);
+    --accent: #3b82f6;
+    --accent2: #06b6d4;
+    --accent3: #8b5cf6;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --student: #3b82f6;
+    --parent: #10b981;
+    --warden: #f59e0b;
+    --admin: #8b5cf6;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated background */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridShift 20s linear infinite;
+  }
+  @keyframes gridShift { to { background-position: 40px 40px; } }
+
+  .orb {
+    position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0;
+  }
+  .orb1 { width: 500px; height: 500px; background: rgba(59,130,246,0.12); top: -150px; left: -100px; animation: float1 12s ease-in-out infinite; }
+  .orb2 { width: 400px; height: 400px; background: rgba(139,92,246,0.1); bottom: -100px; right: -100px; animation: float2 15s ease-in-out infinite; }
+  .orb3 { width: 300px; height: 300px; background: rgba(6,182,212,0.08); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: float3 10s ease-in-out infinite; }
+  @keyframes float1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,30px)} }
+  @keyframes float2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-30px,20px)} }
+  @keyframes float3 { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.2)} }
+
+  /* Layout */
+  .page {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .page.hidden { opacity: 0; pointer-events: none; transform: scale(0.97); }
+
+  /* Login Card */
+  .login-card {
+    background: rgba(17,24,39,0.85);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 48px 44px;
+    width: 480px;
+    max-width: 95vw;
+    box-shadow: 0 0 60px rgba(59,130,246,0.08), 0 32px 64px rgba(0,0,0,0.5);
+    animation: cardIn 0.7s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @keyframes cardIn { from {opacity:0; transform:translateY(30px)} to {opacity:1; transform:translateY(0)} }
+
+  .logo-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+  }
+  .logo-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px; font-weight: 800;
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .tagline {
+    font-size: 13px; color: var(--muted); margin-bottom: 36px; margin-left: 56px;
+    letter-spacing: 0.04em; font-style: italic;
+  }
+
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 700;
+    color: var(--text); margin-bottom: 24px;
+  }
+
+  /* Role Selector */
+  .role-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 28px;
+  }
+  .role-btn {
+    padding: 14px 10px; border-radius: 12px;
+    border: 1.5px solid rgba(255,255,255,0.07);
+    background: var(--surface2);
+    cursor: pointer; text-align: center;
+    transition: all 0.2s ease;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .role-btn:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+  .role-btn.active { border-color: var(--role-color); background: rgba(var(--role-rgb),0.1); }
+  .role-btn .icon { font-size: 22px; }
+  .role-btn .label { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; }
+  .role-btn.active .label { color: var(--role-color); }
+
+  [data-role="student"] { --role-color: var(--student); --role-rgb: 59,130,246; }
+  [data-role="parent"]  { --role-color: var(--parent);  --role-rgb: 16,185,129; }
+  [data-role="warden"]  { --role-color: var(--warden);  --role-rgb: 245,158,11; }
+  [data-role="admin"]   { --role-color: var(--admin);   --role-rgb: 139,92,246; }
+
+  /* Form */
+  .field { margin-bottom: 18px; }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  input {
+    width: 100%; padding: 13px 16px;
+    background: var(--surface2); border: 1.5px solid rgba(255,255,255,0.07);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 15px;
+    transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+  }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+  input::placeholder { color: var(--muted); }
+
+  .login-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    border: none; border-radius: 12px;
+    color: #fff; font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.04em;
+    cursor: pointer; margin-top: 6px;
+    transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px rgba(59,130,246,0.25);
+  }
+  .login-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 30px rgba(59,130,246,0.35); }
+  .login-btn:active { transform: translateY(0); }
+
+  .error-msg {
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px; padding: 10px 14px;
+    color: #f87171; font-size: 13px; margin-top: 14px;
+    display: none;
+  }
+  .error-msg.show { display: block; animation: shake 0.3s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  .demo-hint {
+    text-align: center; margin-top: 20px; font-size: 12px; color: var(--muted);
+    background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .demo-hint b { color: #94a3b8; }
+
+  /* ========== DASHBOARDS ========== */
+  .dashboard {
+    width: 100%; min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    animation: fadeIn 0.5s ease both;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px; background: rgba(17,24,39,0.95);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 24px 0; flex-shrink: 0;
+    position: fixed; height: 100vh; overflow-y: auto;
+  }
+  .sidebar-logo {
+    padding: 0 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .sidebar-logo .s-logo {
+    font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800;
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .sidebar-logo .s-sub { font-size: 11px; color: var(--muted); }
+
+  .nav-section { padding: 8px 12px; }
+  .nav-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 8px; margin-bottom: 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px;
+    cursor: pointer; transition: all 0.15s;
+    font-size: 14px; color: var(--muted); font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(59,130,246,0.12); color: #60a5fa; }
+  .nav-item .ni { font-size: 16px; }
+
+  .sidebar-bottom {
+    margin-top: auto; padding: 16px 12px 0;
+    border-top: 1px solid var(--border);
+  }
+  .user-chip {
+    display: flex; align-items: center; gap: 10px; padding: 10px;
+    background: var(--surface2); border-radius: 10px;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+  }
+  .user-info .name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .user-info .role-tag { font-size: 11px; color: var(--muted); }
+  .logout-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 16px; margin-left: auto;
+    transition: color 0.2s;
+  }
+  .logout-btn:hover { color: #f87171; }
+
+  /* Main content */
+  .main {
+    margin-left: 240px; flex: 1; padding: 32px;
+    min-height: 100vh; overflow-y: auto;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  .page-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; }
+  .page-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .badge-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px;
+    font-size: 13px; color: var(--text); cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .notif-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #f87171; display: inline-block;
+  }
+
+  /* Stats cards */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px;
+    position: relative; overflow: hidden;
+    transition: transform 0.2s; cursor: default;
+  }
+  .stat-card:hover { transform: translateY(-3px); }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--card-color, var(--accent));
+  }
+  .stat-num { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--text); }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-icon { position: absolute; top: 16px; right: 16px; font-size: 24px; opacity: 0.4; }
+
+  /* Content grid */
+  .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width:900px) { .content-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Leave list */
+  .leave-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border-radius: 10px;
+    background: var(--surface2); margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .leave-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #1d4ed8, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .leave-name { font-size: 14px; font-weight: 500; }
+  .leave-date { font-size: 12px; color: var(--muted); }
+  .status-badge {
+    margin-left: auto; padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .status-badge.pending { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .status-badge.approved { background: rgba(16,185,129,0.15); color: #34d399; }
+  .status-badge.rejected { background: rgba(239,68,68,0.15); color: #f87171; }
+
+  /* Quick actions */
+  .action-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-radius: 12px;
+    background: var(--surface2); border: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer; margin-bottom: 8px; width: 100%;
+    transition: all 0.15s; color: var(--text); font-size: 14px;
+    font-family: 'DM Sans', sans-serif; font-weight: 500;
+  }
+  .action-btn:hover { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); }
+  .action-icon { font-size: 18px; }
+
+  /* Activity timeline */
+  .timeline-item { display: flex; gap: 12px; margin-bottom: 14px; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .tl-dot.approved { background: #34d399; }
+  .tl-dot.pending  { background: #fbbf24; }
+  .tl-dot.rejected { background: #f87171; }
+  .tl-dot.info     { background: #60a5fa; }
+  .tl-text { font-size: 13px; color: var(--text); }
+  .tl-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Apply leave form */
+  .apply-form { display: grid; gap: 14px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 14px;
+    background: var(--surface2); border: 1.5px solid rgba(255,255,255,0.07);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .form-group select option { background: var(--surface2); }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .submit-btn {
+    padding: 12px 24px; background: linear-gradient(135deg, var(--accent), var(--accent3));
+    border: none; border-radius: 10px; color: #fff;
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: opacity 0.2s; width: fit-content;
+  }
+  .submit-btn:hover { opacity: 0.85; }
+
+  .full-width { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- ===== LOGIN PAGE ===== -->
+<div class="page" id="loginPage">
+  <div class="login-card">
+    <div class="logo-row">
+      <div class="logo-icon">🏫</div>
+      <span class="logo-text">SmartLeave</span>
+    </div>
+    <p class="tagline">Hostel Leave Management System</p>
+
+    <h2>Sign in to continue</h2>
+
+    <div class="role-grid">
+      <div class="role-btn active" data-role="student" onclick="selectRole('student',this)">
+        <span class="icon">🎓</span>
+        <span class="label">Student</span>
+      </div>
+      <div class="role-btn" data-role="parent" onclick="selectRole('parent',this)">
+        <span class="icon">👨‍👩‍👧</span>
+        <span class="label">Parent</span>
+      </div>
+      <div class="role-btn" data-role="warden" onclick="selectRole('warden',this)">
+        <span class="icon">🔑</span>
+        <span class="label">Warden</span>
+      </div>
+      <div class="role-btn" data-role="admin" onclick="selectRole('admin',this)">
+        <span class="icon">⚙️</span>
+        <span class="label">Admin</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Email / User ID</label>
+      <input type="text" id="emailInput" placeholder="Enter your email or ID" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="passInput" placeholder="Enter your password" />
+    </div>
+
+    <button class="login-btn" onclick="doLogin()">Login →</button>
+
+    <div class="error-msg" id="errMsg">⚠ Invalid credentials. Please try the demo hints below.</div>
+
+    <div class="demo-hint">
+      <b>Demo Login:</b> any email · password <b>1234</b><br>
+      Select your role above then login
+    </div>
+  </div>
+</div>
+
+<!-- ===== STUDENT DASHBOARD ===== -->
+<div class="page hidden" id="studentDash">
+  <div class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="s-logo">SmartLeave</div>
+        <div class="s-sub">Student Portal</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Main</div>
+        <div class="nav-item active"><span class="ni">🏠</span> Dashboard</div>
+        <div class="nav-item"><span class="ni">📝</span> Apply for Leave</div>
+        <div class="nav-item"><span class="ni">📋</span> My Requests</div>
+        <div class="nav-item"><span class="ni">📜</span> Leave History</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Account</div>
+        <div class="nav-item"><span class="ni">👤</span> My Profile</div>
+        <div class="nav-item"><span class="ni">🔔</span> Notifications</div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="user-chip">
+          <div class="avatar">RA</div>
+          <div class="user-info">
+            <div class="name">Akmal Badgandi</div>
+            <div class="role-tag">Student · Room 204</div>
+          </div>
+          <button class="logout-btn" onclick="logout()" title="Logout">⏏</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Welcome back, Akmal 👋</div>
+          <div class="page-subtitle">Here's your leave status overview</div>
+        </div>
+        <div class="topbar-right">
+          <div class="badge-btn"><span class="notif-dot"></span> 2 Notifications</div>
+          <div class="badge-btn">🗓 Apr 21, 2026</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="--card-color:#3b82f6">
+          <div class="stat-num">3</div>
+          <div class="stat-label">Total Requests</div>
+          <div class="stat-icon">📋</div>
+        </div>
+        <div class="stat-card" style="--card-color:#10b981">
+          <div class="stat-num">2</div>
+          <div class="stat-label">Approved</div>
+          <div class="stat-icon">✅</div>
+        </div>
+        <div class="stat-card" style="--card-color:#f59e0b">
+          <div class="stat-num">1</div>
+          <div class="stat-label">Pending</div>
+          <div class="stat-icon">⏳</div>
+        </div>
+        <div class="stat-card" style="--card-color:#8b5cf6">
+          <div class="stat-num">8</div>
+          <div class="stat-label">Leave Days Used</div>
+          <div class="stat-icon">📅</div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <!-- Apply Leave Form -->
+        <div class="card">
+          <div class="card-title">📝 Apply for Leave</div>
+          <div class="apply-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>From Date</label>
+                <input type="date" />
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input type="date" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Leave Type</label>
+              <select>
+                <option>Medical Leave</option>
+                <option>Family Emergency</option>
+                <option>Personal Work</option>
+                <option>Festival / Holiday</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Reason</label>
+              <textarea placeholder="Briefly describe your reason..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Parent Contact</label>
+              <input type="text" placeholder="Parent's phone number" />
+            </div>
+            <button class="submit-btn" onclick="alert('Leave request submitted! Parent & Warden will be notified.')">Submit Request →</button>
+          </div>
+        </div>
+
+        <!-- Recent requests + Activity -->
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="card">
+            <div class="card-title">📋 Recent Requests</div>
+            <div class="leave-item">
+              <div class="leave-avatar">RA</div>
+              <div><div class="leave-name">Medical Leave</div><div class="leave-date">Apr 15–17, 2026</div></div>
+              <span class="status-badge approved">Approved</span>
+            </div>
+            <div class="leave-item">
+              <div class="leave-avatar">RA</div>
+              <div><div class="leave-name">Festival Leave</div><div class="leave-date">Apr 20–22, 2026</div></div>
+              <span class="status-badge pending">Pending</span>
+            </div>
+            <div class="leave-item">
+              <div class="leave-avatar">RA</div>
+              <div><div class="leave-name">Family Emergency</div><div class="leave-date">Mar 5, 2026</div></div>
+              <span class="status-badge approved">Approved</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">⚡ Recent Activity</div>
+            <div class="timeline-item">
+              <div class="tl-dot approved"></div>
+              <div><div class="tl-text">Warden approved your Medical Leave</div><div class="tl-time">Apr 17, 2026 · 9:30 AM</div></div>
+            </div>
+            <div class="timeline-item">
+              <div class="tl-dot info"></div>
+              <div><div class="tl-text">Parent notified about Festival Leave</div><div class="tl-time">Apr 20, 2026 · 6:00 PM</div></div>
+            </div>
+            <div class="timeline-item">
+              <div class="tl-dot pending"></div>
+              <div><div class="tl-text">Festival Leave awaiting parent approval</div><div class="tl-time">Apr 20, 2026 · 6:01 PM</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===== PARENT DASHBOARD ===== -->
+<div class="page hidden" id="parentDash">
+  <div class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="s-logo">SmartLeave</div>
+        <div class="s-sub">Parent Portal</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Main</div>
+        <div class="nav-item active"><span class="ni">🏠</span> Dashboard</div>
+        <div class="nav-item"><span class="ni">🔔</span> Pending Approvals</div>
+        <div class="nav-item"><span class="ni">📜</span> Leave History</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Account</div>
+        <div class="nav-item"><span class="ni">👤</span> My Profile</div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="user-chip">
+          <div class="avatar" style="background:linear-gradient(135deg,#059669,#0891b2)">SA</div>
+          <div class="user-info">
+            <div class="name">Sunita Agarwal</div>
+            <div class="role-tag">Parent · Rahul's Guardian</div>
+          </div>
+          <button class="logout-btn" onclick="logout()">⏏</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Parent Dashboard 👨‍👩‍👧</div>
+          <div class="page-subtitle">Manage your child's leave requests</div>
+        </div>
+        <div class="badge-btn"><span class="notif-dot"></span> 1 Action Needed</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="--card-color:#10b981">
+          <div class="stat-num">2</div><div class="stat-label">Approved by You</div><div class="stat-icon">✅</div>
+        </div>
+        <div class="stat-card" style="--card-color:#f59e0b">
+          <div class="stat-num">1</div><div class="stat-label">Awaiting Your Action</div><div class="stat-icon">⏳</div>
+        </div>
+        <div class="stat-card" style="--card-color:#3b82f6">
+          <div class="stat-num">3</div><div class="stat-label">Total Requests</div><div class="stat-icon">📋</div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-title">⏳ Pending Your Approval</div>
+          <div class="leave-item" style="flex-direction:column;align-items:flex-start;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;width:100%">
+              <div class="leave-avatar">RA</div>
+              <div style="flex:1">
+                <div class="leave-name">Festival Leave – Rahul Agarwal</div>
+                <div class="leave-date">Apr 20–22, 2026 · Room 204</div>
+              </div>
+              <span class="status-badge pending">Pending</span>
+            </div>
+            <p style="font-size:13px;color:var(--muted);padding-left:46px;">Reason: Going home for Ugadi festival celebration with family.</p>
+            <div style="display:flex;gap:10px;padding-left:46px;">
+              <button onclick="alert('Leave Approved! Warden notified.')" style="padding:8px 20px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;color:#34d399;cursor:pointer;font-weight:600;font-size:13px;">✓ Approve</button>
+              <button onclick="alert('Leave Rejected! Student notified.')" style="padding:8px 20px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#f87171;cursor:pointer;font-weight:600;font-size:13px;">✕ Reject</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📜 Past Approvals</div>
+          <div class="leave-item">
+            <div class="leave-avatar">RA</div>
+            <div><div class="leave-name">Medical Leave</div><div class="leave-date">Apr 15–17, 2026</div></div>
+            <span class="status-badge approved">Approved</span>
+          </div>
+          <div class="leave-item">
+            <div class="leave-avatar">RA</div>
+            <div><div class="leave-name">Family Emergency</div><div class="leave-date">Mar 5, 2026</div></div>
+            <span class="status-badge approved">Approved</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===== WARDEN DASHBOARD ===== -->
+<div class="page hidden" id="wardenDash">
+  <div class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="s-logo">SmartLeave</div>
+        <div class="s-sub">Warden Portal</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Main</div>
+        <div class="nav-item active"><span class="ni">🏠</span> Dashboard</div>
+        <div class="nav-item"><span class="ni">📋</span> All Requests</div>
+        <div class="nav-item"><span class="ni">👥</span> Students</div>
+        <div class="nav-item"><span class="ni">📜</span> Leave History</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Tools</div>
+        <div class="nav-item"><span class="ni">📊</span> Reports</div>
+        <div class="nav-item"><span class="ni">📢</span> Announcements</div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="user-chip">
+          <div class="avatar" style="background:linear-gradient(135deg,#d97706,#dc2626)">MK</div>
+          <div class="user-info">
+            <div class="name">Mr. Mohan Kumar</div>
+            <div class="role-tag">Warden · Block A</div>
+          </div>
+          <button class="logout-btn" onclick="logout()">⏏</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Warden Dashboard 🔑</div>
+          <div class="page-subtitle">Block A · Manage all student leave requests</div>
+        </div>
+        <div class="badge-btn"><span class="notif-dot"></span> 3 Pending</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="--card-color:#f59e0b">
+          <div class="stat-num">3</div><div class="stat-label">Pending Review</div><div class="stat-icon">⏳</div>
+        </div>
+        <div class="stat-card" style="--card-color:#10b981">
+          <div class="stat-num">12</div><div class="stat-label">Approved This Month</div><div class="stat-icon">✅</div>
+        </div>
+        <div class="stat-card" style="--card-color:#ef4444">
+          <div class="stat-num">2</div><div class="stat-label">Rejected</div><div class="stat-icon">❌</div>
+        </div>
+        <div class="stat-card" style="--card-color:#3b82f6">
+          <div class="stat-num">48</div><div class="stat-label">Total Students</div><div class="stat-icon">👥</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">⏳ Pending Requests (3)</div>
+        ${[['Rahul Agarwal','Festival Leave','Apr 20–22','204','RA'],
+           ['Priya Sharma','Medical Leave','Apr 21–23','108','PS'],
+           ['Karthik Reddy','Personal Work','Apr 22','312','KR']].map(([name,type,date,room,init])=>`
+        <div class="leave-item">
+          <div class="leave-avatar">${init}</div>
+          <div style="flex:1">
+            <div class="leave-name">${name} <span style="font-size:11px;color:var(--muted);margin-left:6px;">Room ${room}</span></div>
+            <div class="leave-date">${type} · ${date}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="alert('Approved!')" style="padding:6px 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:7px;color:#34d399;cursor:pointer;font-size:12px;font-weight:600;">✓ Approve</button>
+            <button onclick="alert('Rejected!')" style="padding:6px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:7px;color:#f87171;cursor:pointer;font-size:12px;font-weight:600;">✕ Reject</button>
+          </div>
+        </div>`).join('')}
+      </div>
+
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-title">📜 Recently Processed</div>
+          <div class="leave-item">
+            <div class="leave-avatar">AP</div>
+            <div><div class="leave-name">Anjali Patel · Medical</div><div class="leave-date">Apr 18–19, 2026</div></div>
+            <span class="status-badge approved">Approved</span>
+          </div>
+          <div class="leave-item">
+            <div class="leave-avatar">VN</div>
+            <div><div class="leave-name">Vijay Nair · Personal</div><div class="leave-date">Apr 10, 2026</div></div>
+            <span class="status-badge rejected">Rejected</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚡ Quick Actions</div>
+          <button class="action-btn"><span class="action-icon">📢</span> Send Block Announcement</button>
+          <button class="action-btn"><span class="action-icon">📊</span> Download Monthly Report</button>
+          <button class="action-btn"><span class="action-icon">👥</span> View Student List</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===== ADMIN DASHBOARD ===== -->
+<div class="page hidden" id="adminDash">
+  <div class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="s-logo">SmartLeave</div>
+        <div class="s-sub">Admin Console</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Overview</div>
+        <div class="nav-item active"><span class="ni">🏠</span> Dashboard</div>
+        <div class="nav-item"><span class="ni">📋</span> All Requests</div>
+        <div class="nav-item"><span class="ni">👥</span> User Management</div>
+        <div class="nav-item"><span class="ni">🏠</span> Hostel Blocks</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item"><span class="ni">📊</span> Analytics</div>
+        <div class="nav-item"><span class="ni">⚙️</span> Settings</div>
+        <div class="nav-item"><span class="ni">🔐</span> Role Management</div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="user-chip">
+          <div class="avatar" style="background:linear-gradient(135deg,#7c3aed,#2563eb)">AD</div>
+          <div class="user-info">
+            <div class="name">Admin</div>
+            <div class="role-tag">System Administrator</div>
+          </div>
+          <button class="logout-btn" onclick="logout()">⏏</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Admin Console ⚙️</div>
+          <div class="page-subtitle">Full system overview – SmartLeave Hostel</div>
+        </div>
+        <div class="badge-btn">🏫 Govt Hostel, Dharwad</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="--card-color:#8b5cf6">
+          <div class="stat-num">156</div><div class="stat-label">Total Students</div><div class="stat-icon">🎓</div>
+        </div>
+        <div class="stat-card" style="--card-color:#f59e0b">
+          <div class="stat-num">8</div><div class="stat-label">Pending Requests</div><div class="stat-icon">⏳</div>
+        </div>
+        <div class="stat-card" style="--card-color:#10b981">
+          <div class="stat-num">47</div><div class="stat-label">Approved This Month</div><div class="stat-icon">✅</div>
+        </div>
+        <div class="stat-card" style="--card-color:#3b82f6">
+          <div class="stat-num">4</div><div class="stat-label">Active Wardens</div><div class="stat-icon">🔑</div>
+        </div>
+        <div class="stat-card" style="--card-color:#ef4444">
+          <div class="stat-num">5</div><div class="stat-label">Rejected</div><div class="stat-icon">❌</div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-title">👥 User Overview</div>
+          ${[['Students','156','🎓','#3b82f6'],['Parents','143','👨‍👩‍👧','#10b981'],['Wardens','4','🔑','#f59e0b'],['Admins','2','⚙️','#8b5cf6']].map(([r,n,ic,c])=>`
+          <div class="leave-item">
+            <div style="font-size:20px">${ic}</div>
+            <div style="flex:1"><div class="leave-name">${r}</div></div>
+            <span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:${c}">${n}</span>
+          </div>`).join('')}
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚡ Admin Actions</div>
+          <button class="action-btn"><span class="action-icon">➕</span> Add New Student</button>
+          <button class="action-btn"><span class="action-icon">🔑</span> Manage Wardens</button>
+          <button class="action-btn"><span class="action-icon">📊</span> Export Full Report</button>
+          <button class="action-btn"><span class="action-icon">📢</span> Hostel-wide Announcement</button>
+          <button class="action-btn"><span class="action-icon">🗄️</span> View All Leave History</button>
+        </div>
+
+        <div class="card full-width" style="grid-column:1/-1">
+          <div class="card-title">📋 Latest Leave Requests (All Blocks)</div>
+          ${[['Rahul Agarwal','Block A','Festival Leave','Apr 20–22','pending'],
+             ['Priya Sharma','Block B','Medical Leave','Apr 21–23','pending'],
+             ['Anjali Patel','Block A','Medical Leave','Apr 18–19','approved'],
+             ['Vijay Nair','Block C','Personal','Apr 10','rejected'],
+             ['Karthik Reddy','Block B','Personal Work','Apr 22','pending']].map(([name,block,type,date,status])=>`
+          <div class="leave-item">
+            <div class="leave-avatar">${name.split(' ').map(w=>w[0]).join('')}</div>
+            <div style="flex:1">
+              <div class="leave-name">${name} <span style="font-size:11px;color:var(--muted);margin-left:6px;">${block}</span></div>
+              <div class="leave-date">${type} · ${date}</div>
+            </div>
+            <span class="status-badge ${status}">${status}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  let selectedRole = 'student';
+
+  function selectRole(role, el) {
+    selectedRole = role;
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Demo credentials
+  const creds = { password: '1234' };
+
+  function doLogin() {
+    const email = document.getElementById('emailInput').value.trim();
+    const pass  = document.getElementById('passInput').value.trim();
+    const err   = document.getElementById('errMsg');
+
+    if (!email || pass !== creds.password) {
+      err.classList.add('show');
+      setTimeout(() => err.classList.remove('show'), 3000);
+      return;
+    }
+
+    // Navigate to appropriate dashboard
+    document.getElementById('loginPage').classList.add('hidden');
+    const map = {
+      student: 'studentDash',
+      parent:  'parentDash',
+      warden:  'wardenDash',
+      admin:   'adminDash'
+    };
+    document.getElementById(map[selectedRole]).classList.remove('hidden');
+  }
+
+  function logout() {
+    document.querySelectorAll('.dashboard').forEach(d => {
+      d.closest('.page').classList.add('hidden');
+    });
+    document.getElementById('loginPage').classList.remove('hidden');
+    document.getElementById('emailInput').value = '';
+    document.getElementById('passInput').value = '';
+  }
+
+  // Allow Enter key login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('loginPage').classList.contains('hidden')) {
+      doLogin();
+    }
+  });
+</script>
+</body>
+</html>
